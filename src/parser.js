@@ -1,4 +1,4 @@
-const EOF = Symbol("EOF");
+export const EOF = Symbol("EOF");
 
 let currentState = null;
 let currentToken = null;
@@ -129,19 +129,6 @@ function endTagOpen(c) {
   switch (c) {
     case "\u003E": // greater than sign >
       return data;
-    case EOF:
-      emit({
-        type: TOKEN_TYPE.TEXT,
-        content: "<",
-      });
-      emit({
-        type: TOKEN_TYPE.TEXT,
-        content: "/",
-      });
-      emit({
-        type: TOKEN_TYPE.END_OF_FILE,
-      });
-      break;
     default:
       // This is an invalid-first-character-of-tag-name parse error.
       // Create a comment token whose data is the empty string. Reconsume in the bogus comment state.
@@ -277,10 +264,6 @@ function doubleQuotedAttributeValue(c) {
   switch (c) {
     case "\u0022": // quotation mark "
       return afterQuptedAttributeValue;
-    case "\u0000":
-      // This is an unexpected-null-character parse error
-      currentAttributeValue += "\uFFFD";
-      return doubleQuotedAttributeValue;
     case TOKEN_TYPE.END_OF_FILE:
       emit({
         type: TOKEN_TYPE.END_OF_FILE,
@@ -296,10 +279,6 @@ function singleQuotedAttributeValue(c) {
   switch (c) {
     case "\u0027": // apostrophe (')
       return afterQuptedAttributeValue;
-    case "\u0000":
-      // This is an unexpected-null-character parse error
-      currentAttributeValue += "\uFFFD";
-      return singleQuotedAttributeValue;
     case TOKEN_TYPE.END_OF_FILE:
       emit({
         type: TOKEN_TYPE.END_OF_FILE,
@@ -340,24 +319,11 @@ function attributeValueUnquoted(c) {
     case "\f": // Form Feed (FF)
     case "\u0020": // space
       return beforeAttributeName;
-    case "\u003E": // (>)
-      emit(currentToken);
-      return data;
-    case "\u0000":
-      // This is an unexpected-null-character parse error
-      currentAttributeValue += "\uFFFD";
-      return singleQuotedAttributeValue;
     case TOKEN_TYPE.END_OF_FILE:
       emit({
         type: TOKEN_TYPE.END_OF_FILE,
       });
       break;
-    //Below case all are unexpected-character-in-unquoted-attribute-value parse errors.
-    case "\u0022": // QUOTATION MARK (")
-    case "\u0027": // APOSTROPHE (')
-    case "\u003C": // LESS-THAN SIGN (<)
-    case "\u003D": // EQUALS SIGN (=)
-    case "\u0060": // GRAVE ACCENT (`)
     default:
       currentAttributeValue += c;
       return attributeValueUnquoted;
@@ -379,6 +345,11 @@ export function parseHTML(html) {
     state = state(c);
   }
   state = state(EOF);
+  let document = stack[0];
+  resetStack();
+  return document;
+}
 
-  return stack[0];
+function resetStack() {
+  stack = [{ type: "document", children: [], childLength: 0 }];
 }
